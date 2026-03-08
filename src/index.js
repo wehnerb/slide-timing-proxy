@@ -1,22 +1,13 @@
 // ============================================================
 // CONFIGURATION — update these values for each display board
-// PRESENTATION_ID      : Google Slides presentation ID (from URL)
-// TOTAL_SECONDS        : Total seconds the display system allocates
-//                        to the slideshow slot. The timing calculation
-//                        uses this value directly — the splash delay
-//                        occurs before the display system timer starts
-//                        so no adjustment to this value is needed.
-// MIN_SECONDS          : Minimum seconds per slide (prevents slides
-//                        from cycling too fast with many slides)
-// INITIAL_DELAY_SECONDS: Seconds to show the splash screen while
-//                        Google Slides loads silently in the background.
-//                        Increase this value if the first slide still
-//                        appears mid-presentation on the display system.
+// PRESENTATION_ID : Google Slides presentation ID (from URL)
+// TOTAL_SECONDS   : Total time allotted to the slideshow
+// MIN_SECONDS     : Minimum time per slide (prevents slides
+//                   from cycling too fast with many slides)
 // ============================================================
-const PRESENTATION_ID       = "10JVNXp6ucL41ICkwqksODqIc2Att5ICA8Y7oG3TcdZo";
-const TOTAL_SECONDS         = 60;
-const MIN_SECONDS           = 5;
-const INITIAL_DELAY_SECONDS = 5;
+const PRESENTATION_ID = "10JVNXp6ucL41ICkwqksODqIc2Att5ICA8Y7oG3TcdZo";
+const TOTAL_SECONDS   = 60;
+const MIN_SECONDS     = 5;
 
 
 // ============================================================
@@ -82,10 +73,9 @@ export default {
     }
 
     // --------------------------------------------------------
-    // CALCULATE PER-SLIDE DELAY and build the embed URL.
-    // TOTAL_SECONDS is used directly here — the splash delay
-    // occurs before the display system timer starts, so slide
-    // timing does not need to be adjusted to account for it.
+    // CALCULATE PER-SLIDE DELAY and redirect to Google Slides
+    // Divides total time equally across slides, respecting the
+    // minimum per-slide floor. Single slide gets full TOTAL_SECONDS.
     // --------------------------------------------------------
     const secondsPerSlide = Math.min(
       TOTAL_SECONDS,
@@ -93,21 +83,17 @@ export default {
     );
     const delayMs = secondsPerSlide * 1000;
 
-    const embedUrl =
+    const redirectUrl =
       `https://docs.google.com/presentation/d/${PRESENTATION_ID}` +
       `/embed?start=true&loop=true&delayms=${delayMs}`;
 
-    // --------------------------------------------------------
-    // SPLASH PAGE — shown for INITIAL_DELAY_SECONDS before the
-    // browser navigates to the Google Slides embed URL. Keeping
-    // the embed URL out of the page until the delay completes
-    // ensures Google Slides always starts cleanly from slide 1.
-    // Cache-Control: no-store ensures the display always
-    // re-checks slide count rather than serving stale timing.
-    // --------------------------------------------------------
-    return new Response(buildSplashPage(embedUrl), {
+    // Build redirect manually so Cache-Control header is correctly applied.
+    // Response.redirect() only accepts two arguments and silently drops any
+    // additional options, so headers must be set this way to take effect.
+    return new Response(null, {
+      status: 302,
       headers: {
-        "Content-Type": "text/html; charset=utf-8",
+        "Location": redirectUrl,
         "Cache-Control": "no-store",
       },
     });
@@ -224,88 +210,6 @@ function arrayBufferToBase64url(buffer) {
     .replace(/\+/g, "-")
     .replace(/\//g, "_")
     .replace(/=/g, "");
-}
-
-
-// ============================================================
-// SPLASH PAGE
-// Shown for INITIAL_DELAY_SECONDS before navigating to the
-// Google Slides embed URL. The delay ensures the display system
-// is fully ready before the presentation starts, so Google Slides
-// always receives a clean start from slide 1.
-//
-// The navigation is triggered by a JavaScript setTimeout rather
-// than a CSS animation or iframe preload — this guarantees the
-// presentation has not begun cycling in the background before
-// it becomes visible on screen.
-// ============================================================
-function buildSplashPage(embedUrl) {
-  const delayMs = INITIAL_DELAY_SECONDS * 1000;
-
-  return `<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Loading...</title>
-  <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-
-    body {
-      background: #0d1b2a;
-      width: 100vw;
-      height: 100vh;
-      overflow: hidden;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      gap: 20px;
-    }
-
-    .badge {
-      width: 100px;
-      height: 100px;
-      border-radius: 50%;
-      background: #1e3a5f;
-      border: 4px solid #2e6da4;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 48px;
-    }
-
-    h1 {
-      font-family: Arial, Helvetica, sans-serif;
-      font-size: 2rem;
-      font-weight: 700;
-      letter-spacing: 0.05em;
-      color: #e8f0fe;
-    }
-
-    .divider {
-      width: 60px;
-      height: 3px;
-      background: #2e6da4;
-      border-radius: 2px;
-    }
-  </style>
-
-  <script>
-    // After INITIAL_DELAY_SECONDS, navigate to the Google Slides embed.
-    // The presentation has not started loading during the delay, so it
-    // will always begin cleanly from slide 1 when navigation occurs.
-    setTimeout(function() {
-      window.location.href = "${embedUrl}";
-    }, ${delayMs});
-  </script>
-</head>
-<body>
-  <div class="badge">&#128202;</div>
-  <div class="divider"></div>
-  <h1>LOADING PRESENTATION</h1>
-</body>
-</html>`;
 }
 
 
