@@ -87,10 +87,15 @@ export default {
       `https://docs.google.com/presentation/d/${PRESENTATION_ID}` +
       `/embed?start=true&loop=true&delayms=${delayMs}`;
 
-    // no-store ensures the display always re-checks slide count on each load
-    // rather than caching the redirect and using stale timing indefinitely
-    return Response.redirect(redirectUrl, 302, {
-      headers: { "Cache-Control": "no-store" },
+    // Build redirect manually so Cache-Control header is correctly applied.
+    // Response.redirect() only accepts two arguments and silently drops any
+    // additional options, so headers must be set this way to take effect.
+    return new Response(null, {
+      status: 302,
+      headers: {
+        "Location": redirectUrl,
+        "Cache-Control": "no-store",
+      },
     });
   },
 };
