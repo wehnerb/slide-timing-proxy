@@ -1,10 +1,13 @@
 // ============================================================
 // CONFIGURATION — update these values for each display board
+// PRESENTATION_ID : Google Slides presentation ID (from URL)
+// TOTAL_SECONDS   : Total time allotted to the slideshow
+// MIN_SECONDS     : Minimum time per slide (prevents slides
+//                   from cycling too fast with many slides)
 // ============================================================
 const PRESENTATION_ID = "10JVNXp6ucL41ICkwqksODqIc2Att5ICA8Y7oG3TcdZo";
 const TOTAL_SECONDS   = 60;
 const MIN_SECONDS     = 5;
-const MAX_SECONDS     = 60;
 
 
 // ============================================================
@@ -71,9 +74,11 @@ export default {
 
     // --------------------------------------------------------
     // CALCULATE PER-SLIDE DELAY and redirect to Google Slides
+    // Divides total time equally across slides, respecting the
+    // minimum per-slide floor. Single slide gets full TOTAL_SECONDS.
     // --------------------------------------------------------
     const secondsPerSlide = Math.min(
-      MAX_SECONDS,
+      TOTAL_SECONDS,
       Math.max(MIN_SECONDS, Math.floor(TOTAL_SECONDS / slideCount))
     );
     const delayMs = secondsPerSlide * 1000;
@@ -148,7 +153,7 @@ async function getAccessToken(email, rawPrivateKey) {
   // Uses a safe byte-by-byte loop to avoid stack overflow
   // on large buffers that spread operator can cause
   // --------------------------------------------------------
-  const encoder  = new TextEncoder();
+  const encoder = new TextEncoder();
   const signatureBuf = await crypto.subtle.sign(
     "RSASSA-PKCS1-v1_5",
     cryptoKey,
