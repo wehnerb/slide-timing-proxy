@@ -1,0 +1,9 @@
+# Production Worker — deployed when changes are merged to main
+name = "slide-timing-proxy"
+main = "src/index.js"
+compatibility_date = "2024-11-01"
+
+# Staging Worker — deployed when changes are pushed to the staging branch
+# Accessible at: https://slide-timing-proxy-staging.bwehner.workers.dev
+[env.staging]
+name = "slide-timing-proxy-staging"
