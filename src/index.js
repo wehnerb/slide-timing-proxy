@@ -3,7 +3,7 @@
 // ============================================================
 const PRESENTATION_ID = "10JVNXp6ucL41ICkwqksODqIc2Att5ICA8Y7oG3TcdZo";
 const TOTAL_SECONDS   = 60;
-const MIN_SECONDS     = 10;
+const MIN_SECONDS     = 5;
 const MAX_SECONDS     = 60;
 
 
@@ -19,43 +19,6 @@ export default {
         status: 500,
         headers: { "Content-Type": "text/plain" },
       });
-    }
-
-    // --------------------------------------------------------
-    // DEBUG MODE — visit URL with ?debug=1 to inspect API calls
-    // Remove the debug block before final production deployment
-    // --------------------------------------------------------
-    const url = new URL(request.url);
-    if (url.searchParams.get("debug") === "1") {
-      try {
-        const token = await getAccessToken(
-          env.GOOGLE_SERVICE_ACCOUNT_EMAIL,
-          env.GOOGLE_PRIVATE_KEY
-        );
-
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 5000);
-
-        const apiUrl =
-          `https://slides.googleapis.com/v1/presentations/${PRESENTATION_ID}` +
-          `?fields=slides.objectId`;
-
-        const apiResponse = await fetch(apiUrl, {
-          signal: controller.signal,
-          headers: { "Authorization": `Bearer ${token}` },
-        });
-        clearTimeout(timeoutId);
-
-        const text = await apiResponse.text();
-        return new Response(
-          `Status: ${apiResponse.status}\n\nEmail present: ${!!env.GOOGLE_SERVICE_ACCOUNT_EMAIL}\nKey present: ${!!env.GOOGLE_PRIVATE_KEY}\n\nResponse:\n${text}`,
-          { headers: { "Content-Type": "text/plain" } }
-        );
-      } catch (e) {
-        return new Response(`Error: ${e.message}`, {
-          headers: { "Content-Type": "text/plain" },
-        });
-      }
     }
 
     // --------------------------------------------------------
