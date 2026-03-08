@@ -5,14 +5,32 @@ const MAX_SECONDS = 60;
 
 export default {
   async fetch(request, env) {
+  const url = new URL(request.url);
 
-    // Guard: catch placeholder ID before making any API calls
-    if (!PRESENTATION_ID || PRESENTATION_ID === "YOUR_PRESENTATION_ID_HERE") {
-      return new Response("PRESENTATION_ID has not been set in index.js", {
-        status: 500,
+  if (url.searchParams.get("debug") === "1") {
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5000);
+
+      const apiUrl =
+        `https://slides.googleapis.com/v1/presentations/${PRESENTATION_ID}` +
+        `?fields=slides.objectId&key=${env.GOOGLE_API_KEY}`;
+
+      const apiResponse = await fetch(apiUrl, { signal: controller.signal });
+      clearTimeout(timeoutId);
+
+      const text = await apiResponse.text();
+
+      return new Response(
+        `Status: ${apiResponse.status}\n\nAPI Key present: ${!!env.GOOGLE_API_KEY}\n\nResponse:\n${text}`,
+        { headers: { "Content-Type": "text/plain" } }
+      );
+    } catch (e) {
+      return new Response(`Error: ${e.message}`, {
         headers: { "Content-Type": "text/plain" },
       });
     }
+  }
 
     let slideCount = 1; // safe default if API call fails
 
