@@ -38,7 +38,7 @@ const PRESENTATION_ID       = "10JVNXp6ucL41ICkwqksODqIc2Att5ICA8Y7oG3TcdZo";
 const PUBLISHED_ID          = "2PACX-1vR8NXmtrKk_mADNIWPtI57xAFrY_HtAUiKsRcEa2SDprzyXt87tzkMfag9LdJVadI1tdATmbyo55Ih3";
 const TOTAL_SECONDS         = 60;
 const MIN_SECONDS           = 5;
-const INITIAL_DELAY_SECONDS = 65;
+const INITIAL_DELAY_SECONDS = 90;
 
 
 // ============================================================
