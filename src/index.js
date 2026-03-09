@@ -44,8 +44,8 @@ const DEFAULT_DELAY_SECONDS = 90;
 
 const DELAY_BY_SCREENS = {
   1: 60,   // 1 traffic camera screen  — tested, confirmed working
-  2: 60,   // 2 traffic camera screens — tested, confirmed working
-  3: 90,   // 3 traffic camera screens — not yet tested, using conservative default
+  2: 60,   // 2 traffic camera screens — not yet tested, using conservative default
+  3: 60,   // 3 traffic camera screens — tested, confirmed working
   4: 90,   // 4 traffic camera screens — tested, confirmed working
 };
 
