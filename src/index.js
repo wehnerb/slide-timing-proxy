@@ -22,23 +22,32 @@
 // MIN_SECONDS          : Minimum seconds per slide (prevents slides
 //                        from cycling too fast with many slides)
 //
-// INITIAL_DELAY_SECONDS: Seconds to wait before navigating to the
-//                        Google Slides embed. The display system
-//                        pre-fetches this page before it becomes
-//                        visible on screen. This delay ensures the
-//                        presentation does not begin cycling in the
-//                        background before it is shown. Increase
-//                        this value if the presentation still starts
-//                        mid-cycle on the display. The pre-fetch
-//                        window was observed to be approximately
-//                        40 seconds, so 45 seconds is the starting
-//                        point to provide a small buffer.
+// DEFAULT_DELAY_SECONDS: Fallback delay used when the ?screens=
+//                        parameter is missing from the URL or its
+//                        value is not found in DELAY_BY_SCREENS.
+//                        Set conservatively high to be safe.
+//
+// DELAY_BY_SCREENS     : Lookup table mapping the number of traffic
+//                        camera screens at a station to the correct
+//                        pre-fetch delay in seconds. The ?screens=
+//                        URL parameter selects the entry to use.
+//                        Determined through testing on actual display
+//                        hardware — adjust individual values as needed.
+//                        Add new entries if a station ever has more
+//                        than 4 traffic camera screens.
 // ============================================================
 const PRESENTATION_ID       = "10JVNXp6ucL41ICkwqksODqIc2Att5ICA8Y7oG3TcdZo";
 const PUBLISHED_ID          = "2PACX-1vR8NXmtrKk_mADNIWPtI57xAFrY_HtAUiKsRcEa2SDprzyXt87tzkMfag9LdJVadI1tdATmbyo55Ih3";
 const TOTAL_SECONDS         = 60;
 const MIN_SECONDS           = 5;
-const INITIAL_DELAY_SECONDS = 90;
+const DEFAULT_DELAY_SECONDS = 90;
+
+const DELAY_BY_SCREENS = {
+  1: 60,   // 1 traffic camera screen  — tested, confirmed working
+  2: 60,   // 2 traffic camera screens — not yet tested, using conservative default
+  3: 60,   // 3 traffic camera screens — tested, confirmed working
+  4: 90,   // 4 traffic camera screens — tested, confirmed working
+};
 
 
 // ============================================================
@@ -61,6 +70,20 @@ export default {
         headers: { "Content-Type": "text/plain" },
       });
     }
+
+    // --------------------------------------------------------
+    // RESOLVE DELAY FROM ?screens= URL PARAMETER
+    // Parse the screens parameter and look up the correct delay.
+    // Falls back to DEFAULT_DELAY_SECONDS if the parameter is
+    // missing, not a number, or not found in DELAY_BY_SCREENS.
+    // --------------------------------------------------------
+    const url = new URL(request.url);
+    const screensParam = url.searchParams.get("screens");
+    const screensCount = parseInt(screensParam, 10);
+    const initialDelaySeconds =
+      (!isNaN(screensCount) && screensCount in DELAY_BY_SCREENS)
+        ? DELAY_BY_SCREENS[screensCount]
+        : DEFAULT_DELAY_SECONDS;
 
     // --------------------------------------------------------
     // FETCH SLIDE COUNT FROM GOOGLE SLIDES API
@@ -132,16 +155,15 @@ export default {
 
     // --------------------------------------------------------
     // DELAY PAGE — returned instead of an immediate redirect.
-    // The display system pre-fetches this page approximately
-    // 40 seconds before the slideshow slot becomes visible.
-    // A direct redirect would cause Google Slides to begin
-    // cycling in the background before it appears on screen.
-    // This page waits INITIAL_DELAY_SECONDS before navigating,
-    // ensuring the presentation always starts from slide 1.
+    // The display system pre-fetches this page before the
+    // slideshow slot becomes visible on screen. This page waits
+    // initialDelaySeconds (resolved from the ?screens= parameter)
+    // before navigating, ensuring the presentation always starts
+    // from slide 1 when it becomes visible.
     // Cache-Control: no-store ensures the display always
     // re-checks slide count rather than serving stale timing.
     // --------------------------------------------------------
-    return new Response(buildDelayPage(embedUrl), {
+    return new Response(buildDelayPage(embedUrl, initialDelaySeconds), {
       headers: {
         "Content-Type": "text/html; charset=utf-8",
         "Cache-Control": "no-store",
@@ -266,13 +288,14 @@ function arrayBufferToBase64url(buffer) {
 // ============================================================
 // DELAY PAGE
 // Returned to the display instead of an immediate redirect.
-// Shows a plain dark screen for INITIAL_DELAY_SECONDS before
-// navigating to the Google Slides embed URL. This prevents the
-// presentation from cycling in the background during the display
-// system's pre-fetch window before the slot becomes visible.
+// Shows a plain dark screen for the resolved delay duration
+// before navigating to the Google Slides embed URL. This
+// prevents the presentation from cycling in the background
+// during the display system's pre-fetch window before the
+// slideshow slot becomes visible on screen.
 // ============================================================
-function buildDelayPage(embedUrl) {
-  const delayMs = INITIAL_DELAY_SECONDS * 1000;
+function buildDelayPage(embedUrl, delaySeconds) {
+  const delayMs = delaySeconds * 1000;
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -290,7 +313,7 @@ function buildDelayPage(embedUrl) {
     }
   </style>
   <script>
-    // Wait INITIAL_DELAY_SECONDS before navigating to the embed URL.
+    // Wait for the resolved delay before navigating to the embed URL.
     // Google Slides does not begin loading during this delay, so the
     // presentation always starts cleanly from slide 1 when navigation
     // fires, regardless of when the display system pre-fetched this page.
