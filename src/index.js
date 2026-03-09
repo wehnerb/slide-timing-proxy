@@ -80,9 +80,8 @@ export default {
     //
     // A cache-busting timestamp (cb) is appended to the embed
     // URL on every request. Google Slides ignores this parameter
-    // but the display system's browser treats each unique URL as
-    // a new session, preventing the presentation from resuming
-    // mid-cycle after the display rotates away and back.
+    // but ensures each visibility event navigates to a unique
+    // URL, preventing any browser caching of the embed page.
     // --------------------------------------------------------
     const secondsPerSlide = Math.min(
       TOTAL_SECONDS,
@@ -95,14 +94,20 @@ export default {
       `/embed?start=true&loop=true&delayms=${delayMs}&cb=${Date.now()}`;
 
     // --------------------------------------------------------
-    // REDIRECT — send the display directly to the embed URL.
+    // VISIBILITY PAGE — returned instead of an immediate redirect.
+    // The display system pre-fetches this page before it is shown,
+    // so a direct redirect would cause Google Slides to begin
+    // loading in the background mid-cycle. This page stays
+    // completely idle — Google Slides does not load at all —
+    // until the Page Visibility API reports the screen is
+    // visible. At that moment navigation fires and Google Slides
+    // always starts cleanly from slide 1.
     // Cache-Control: no-store ensures the display always
     // re-checks slide count rather than serving stale timing.
     // --------------------------------------------------------
-    return new Response(null, {
-      status: 302,
+    return new Response(buildVisibilityPage(embedUrl), {
       headers: {
-        "Location": embedUrl,
+        "Content-Type": "text/html; charset=utf-8",
         "Cache-Control": "no-store",
       },
     });
@@ -219,6 +224,65 @@ function arrayBufferToBase64url(buffer) {
     .replace(/\+/g, "-")
     .replace(/\//g, "_")
     .replace(/=/g, "");
+}
+
+
+// ============================================================
+// VISIBILITY PAGE
+// Returned to the display instead of an immediate redirect.
+// The page sits completely idle — showing a plain dark screen —
+// until the Page Visibility API confirms the screen is in the
+// foreground. Navigation to the Google Slides embed only fires
+// at that moment, guaranteeing the presentation always starts
+// from slide 1 regardless of when the display pre-fetched it.
+// ============================================================
+function buildVisibilityPage(embedUrl) {
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Loading...</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: #0d1b2a;
+      width: 100vw;
+      height: 100vh;
+      overflow: hidden;
+    }
+  </style>
+  <script>
+    // The embed URL is stored but not loaded until this page is visible.
+    // If the page is already visible when it loads (e.g. direct browser
+    // test), navigate immediately. Otherwise wait for the visibility
+    // event, which fires when the display system brings this screen
+    // to the foreground during its normal rotation cycle.
+    var embedUrl = "${embedUrl}";
+
+    function navigateToEmbed() {
+      window.location.href = embedUrl;
+    }
+
+    if (document.visibilityState === "visible") {
+      // Page is already in the foreground — navigate immediately
+      navigateToEmbed();
+    } else {
+      // Page is in the background — wait until it becomes visible
+      document.addEventListener("visibilitychange", function() {
+        if (document.visibilityState === "visible") {
+          navigateToEmbed();
+        }
+      });
+    }
+  </script>
+</head>
+<body>
+  <!-- Intentionally blank — this page is only ever seen during
+       the brief moment between becoming visible and navigating
+       to Google Slides. No content is needed here. -->
+</body>
+</html>`;
 }
 
 
