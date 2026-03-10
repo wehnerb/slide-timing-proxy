@@ -47,7 +47,7 @@ const DELAY_BY_SCREENS = {
   2: 60,   // 2 traffic camera screens
   3: 60,   // 3 traffic camera screens
   4: 90,   // 4 traffic camera screens
-  4: 90,   // 5 traffic camera screens
+  5: 90,   // 5 traffic camera screens
 };
 
 
