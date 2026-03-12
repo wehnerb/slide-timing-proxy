@@ -47,31 +47,18 @@ async fetch(request, env) {
     const PUBLISHED_ID    = env.PUBLISHED_ID;
 
     // Guard: catch placeholder IDs before making any API calls
-
-  // Only GET requests are valid for this Worker.
-// All other HTTP methods are rejected immediately before any processing occurs.
-if (request.method !== 'GET') {
-  return new Response('Method Not Allowed', { status: 405, headers: { 'Allow': 'GET' } });
-}
-  
     if (!PRESENTATION_ID || PRESENTATION_ID === "YOUR_PRESENTATION_ID_HERE") {
       return new Response("PRESENTATION_ID has not been set in index.js", {
-  status: 500,
-  headers: {
-    "Content-Type":          "text/plain",
-    "X-Content-Type-Options": "nosniff",
-  },
-});
+        status: 500,
+        headers: { "Content-Type": "text/plain" },
+      });
     }
 
     if (!PUBLISHED_ID || PUBLISHED_ID === "YOUR_PUBLISHED_ID_HERE") {
       return new Response("PUBLISHED_ID has not been set in index.js", {
-  status: 500,
-  headers: {
-    "Content-Type":          "text/plain",
-    "X-Content-Type-Options": "nosniff",
-  },
-});
+        status: 500,
+        headers: { "Content-Type": "text/plain" },
+      });
     }
 
     // --------------------------------------------------------
@@ -130,13 +117,11 @@ if (request.method !== 'GET') {
     // --------------------------------------------------------
     if (slideCount === 0) {
       return new Response(buildNoContentPage(), {
-  headers: {
-    "Content-Type":          "text/html; charset=utf-8",
-    "Cache-Control":         "no-store",
-    "X-Content-Type-Options": "nosniff",
-    "Referrer-Policy":        "no-referrer",
-  },
-});
+        headers: {
+          "Content-Type": "text/html; charset=utf-8",
+          "Cache-Control": "no-store",
+        },
+      });
     }
 
     // --------------------------------------------------------
@@ -169,13 +154,11 @@ if (request.method !== 'GET') {
     // re-checks slide count rather than serving stale timing.
     // --------------------------------------------------------
     return new Response(buildDelayPage(embedUrl, initialDelaySeconds), {
-  headers: {
-    "Content-Type":          "text/html; charset=utf-8",
-    "Cache-Control":         "no-store",
-    "X-Content-Type-Options": "nosniff",
-    "Referrer-Policy":        "no-referrer",
-  },
-});
+      headers: {
+        "Content-Type": "text/html; charset=utf-8",
+        "Cache-Control": "no-store",
+      },
+    });
   },
 };
 
@@ -304,14 +287,7 @@ function arrayBufferToBase64url(buffer) {
 function buildDelayPage(embedUrl, delaySeconds) {
   const delayMs = delaySeconds * 1000;
 
-  // SECURITY NOTE: embedUrl is injected directly into a <script> block as a string literal.
-// This is safe ONLY because embedUrl is constructed entirely from hardcoded constants
-// (PUBLISHED_ID) and Date.now(). It must NEVER be extended to include any user-supplied
-// input (e.g. URL parameters), any external API response value, or any other untrusted
-// data. Injecting untrusted content here without proper escaping would create a
-// cross-site scripting (XSS) vulnerability allowing arbitrary script execution in the
-// display browser.
-return `<!DOCTYPE html>
+  return `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
