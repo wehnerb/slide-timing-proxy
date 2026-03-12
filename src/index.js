@@ -134,7 +134,6 @@ if (request.method !== 'GET') {
     "Content-Type":          "text/html; charset=utf-8",
     "Cache-Control":         "no-store",
     "X-Content-Type-Options": "nosniff",
-    "X-Frame-Options":        "SAMEORIGIN",
     "Referrer-Policy":        "no-referrer",
   },
 });
@@ -174,7 +173,6 @@ if (request.method !== 'GET') {
     "Content-Type":          "text/html; charset=utf-8",
     "Cache-Control":         "no-store",
     "X-Content-Type-Options": "nosniff",
-    "X-Frame-Options":        "SAMEORIGIN",
     "Referrer-Policy":        "no-referrer",
   },
 });
