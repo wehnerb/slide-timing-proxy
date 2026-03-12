@@ -56,16 +56,22 @@ if (request.method !== 'GET') {
   
     if (!PRESENTATION_ID || PRESENTATION_ID === "YOUR_PRESENTATION_ID_HERE") {
       return new Response("PRESENTATION_ID has not been set in index.js", {
-        status: 500,
-        headers: { "Content-Type": "text/plain" },
-      });
+  status: 500,
+  headers: {
+    "Content-Type":          "text/plain",
+    "X-Content-Type-Options": "nosniff",
+  },
+});
     }
 
     if (!PUBLISHED_ID || PUBLISHED_ID === "YOUR_PUBLISHED_ID_HERE") {
       return new Response("PUBLISHED_ID has not been set in index.js", {
-        status: 500,
-        headers: { "Content-Type": "text/plain" },
-      });
+  status: 500,
+  headers: {
+    "Content-Type":          "text/plain",
+    "X-Content-Type-Options": "nosniff",
+  },
+});
     }
 
     // --------------------------------------------------------
@@ -124,11 +130,14 @@ if (request.method !== 'GET') {
     // --------------------------------------------------------
     if (slideCount === 0) {
       return new Response(buildNoContentPage(), {
-        headers: {
-          "Content-Type": "text/html; charset=utf-8",
-          "Cache-Control": "no-store",
-        },
-      });
+  headers: {
+    "Content-Type":          "text/html; charset=utf-8",
+    "Cache-Control":         "no-store",
+    "X-Content-Type-Options": "nosniff",
+    "X-Frame-Options":        "SAMEORIGIN",
+    "Referrer-Policy":        "no-referrer",
+  },
+});
     }
 
     // --------------------------------------------------------
@@ -161,11 +170,14 @@ if (request.method !== 'GET') {
     // re-checks slide count rather than serving stale timing.
     // --------------------------------------------------------
     return new Response(buildDelayPage(embedUrl, initialDelaySeconds), {
-      headers: {
-        "Content-Type": "text/html; charset=utf-8",
-        "Cache-Control": "no-store",
-      },
-    });
+  headers: {
+    "Content-Type":          "text/html; charset=utf-8",
+    "Cache-Control":         "no-store",
+    "X-Content-Type-Options": "nosniff",
+    "X-Frame-Options":        "SAMEORIGIN",
+    "Referrer-Policy":        "no-referrer",
+  },
+});
   },
 };
 
