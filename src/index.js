@@ -46,6 +46,12 @@ async fetch(request, env) {
     const PRESENTATION_ID = env.PRESENTATION_ID;
     const PUBLISHED_ID    = env.PUBLISHED_ID;
 
+    // Only GET requests are valid for this Worker.
+    // All other HTTP methods are rejected immediately before any processing occurs.
+    if (request.method !== 'GET') {
+      return new Response('Method Not Allowed', { status: 405, headers: { 'Allow': 'GET' } });
+    }
+
     // Guard: catch placeholder IDs before making any API calls
     if (!PRESENTATION_ID || PRESENTATION_ID === "YOUR_PRESENTATION_ID_HERE") {
       return new Response("PRESENTATION_ID has not been set in index.js", {
