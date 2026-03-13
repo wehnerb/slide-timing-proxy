@@ -287,6 +287,13 @@ function arrayBufferToBase64url(buffer) {
 function buildDelayPage(embedUrl, delaySeconds) {
   const delayMs = delaySeconds * 1000;
 
+  // SECURITY NOTE: embedUrl is injected directly into a <script> block as a string literal.
+  // This is safe ONLY because embedUrl is constructed entirely from hardcoded constants
+  // (PUBLISHED_ID) and Date.now(). It must NEVER be extended to include any user-supplied
+  // input (e.g. URL parameters), any external API response value, or any other untrusted
+  // data. Injecting untrusted content here without proper escaping would create a
+  // cross-site scripting (XSS) vulnerability allowing arbitrary script execution in the
+  // display browser.
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
