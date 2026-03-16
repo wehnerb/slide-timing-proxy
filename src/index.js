@@ -29,6 +29,15 @@ const TOTAL_SECONDS         = 60;
 const MIN_SECONDS           = 5;
 const DEFAULT_DELAY_SECONDS = 90;
 
+// How long (seconds) the slide count is cached using the Workers Cache API.
+// During this window, the Google Slides API is only called once regardless
+// of how many display requests come in. Increment SLIDE_CACHE_VERSION by 1
+// to immediately invalidate the cache and force a fresh API call on the next
+// request — useful when the slide count changes and you need displays to
+// pick up the new timing without waiting for the TTL to expire.
+const SLIDE_CACHE_SECONDS = 3600; // 1 hour
+const SLIDE_CACHE_VERSION = 1;
+
 const DELAY_BY_SCREENS = {
   1: 60,   // 1 traffic camera screen
   2: 60,   // 2 traffic camera screens
