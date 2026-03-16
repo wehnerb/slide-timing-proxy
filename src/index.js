@@ -39,6 +39,7 @@ const SLIDE_CACHE_SECONDS = 3600; // 1 hour
 const SLIDE_CACHE_VERSION = 1;
 
 const DELAY_BY_SCREENS = {
+  0: 0,   // no delay, primarily for testing purposes
   1: 60,   // 1 traffic camera screen
   2: 60,   // 2 traffic camera screens
   3: 60,   // 3 traffic camera screens
