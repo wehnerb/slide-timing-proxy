@@ -24,7 +24,22 @@
 //                        hardware — adjust individual values as needed.
 //                        Add new entries if a station ever has more
 //                        than 4 traffic camera screens.
+//
+// SLIDE_CACHE_SECONDS  : How long (seconds) the slide count is cached
+//                        using the Workers Cache API. During this window
+//                        the Google Slides API is called at most once
+//                        regardless of request volume. Default is 3600
+//                        (1 hour), suitable when slide count changes
+//                        infrequently.
+//
+// SLIDE_CACHE_VERSION  : Integer cache-buster. Increment by 1 to
+//                        immediately invalidate the cached slide count
+//                        and force a fresh Google API call on the next
+//                        request. Use this when the slide count changes
+//                        and displays need to pick up new timing without
+//                        waiting for SLIDE_CACHE_SECONDS to expire.
 // ============================================================
+
 const TOTAL_SECONDS         = 60;
 const MIN_SECONDS           = 5;
 const DEFAULT_DELAY_SECONDS = 90;
