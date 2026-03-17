@@ -24,12 +24,37 @@
 //                        hardware — adjust individual values as needed.
 //                        Add new entries if a station ever has more
 //                        than 4 traffic camera screens.
+//
+// SLIDE_CACHE_SECONDS  : How long (seconds) the slide count is cached
+//                        using the Workers Cache API. During this window
+//                        the Google Slides API is called at most once
+//                        regardless of request volume. Default is 3600
+//                        (1 hour), suitable when slide count changes
+//                        infrequently.
+//
+// SLIDE_CACHE_VERSION  : Integer cache-buster. Increment by 1 to
+//                        immediately invalidate the cached slide count
+//                        and force a fresh Google API call on the next
+//                        request. Use this when the slide count changes
+//                        and displays need to pick up new timing without
+//                        waiting for SLIDE_CACHE_SECONDS to expire.
 // ============================================================
+
 const TOTAL_SECONDS         = 60;
 const MIN_SECONDS           = 5;
 const DEFAULT_DELAY_SECONDS = 90;
 
+// How long (seconds) the slide count is cached using the Workers Cache API.
+// During this window, the Google Slides API is only called once regardless
+// of how many display requests come in. Increment SLIDE_CACHE_VERSION by 1
+// to immediately invalidate the cache and force a fresh API call on the next
+// request — useful when the slide count changes and you need displays to
+// pick up the new timing without waiting for the TTL to expire.
+const SLIDE_CACHE_SECONDS = 3600; // 1 hour
+const SLIDE_CACHE_VERSION = 1;
+
 const DELAY_BY_SCREENS = {
+  0: 0,   // no delay, primarily for testing purposes
   1: 60,   // 1 traffic camera screen
   2: 60,   // 2 traffic camera screens
   3: 60,   // 3 traffic camera screens
@@ -82,40 +107,77 @@ async fetch(request, env) {
         : DEFAULT_DELAY_SECONDS;
 
     // --------------------------------------------------------
-    // FETCH SLIDE COUNT FROM GOOGLE SLIDES API
-    // Uses PRESENTATION_ID (not PUBLISHED_ID) for the API call.
-    // Falls back to slideCount = 1 (max delay) if call fails.
+    // FETCH SLIDE COUNT — WITH CACHE
+    // Checks the Workers Cache API before calling Google.
+    // The cache key includes SLIDE_CACHE_VERSION so incrementing
+    // that constant immediately busts the cache and forces a fresh
+    // API call on the next request, without waiting for the TTL.
+    // Falls back to slideCount = 1 if both cache and API fail.
     // --------------------------------------------------------
     let slideCount = 1;
 
-    try {
-      const token = await getAccessToken(
-        env.GOOGLE_SERVICE_ACCOUNT_EMAIL,
-        env.GOOGLE_PRIVATE_KEY
-      );
+    // Build a fully-qualified cache key URL. The Workers Cache API
+    // requires a valid URL string as the key — it is never fetched.
+    const cacheKey = new Request(
+      "https://slide-timing-cache.internal/slide-count" +
+      "?pid=" + PRESENTATION_ID +
+      "&v="   + SLIDE_CACHE_VERSION
+    );
+    const cache = caches.default;
 
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 5000);
-
-      const apiUrl =
-        `https://slides.googleapis.com/v1/presentations/${PRESENTATION_ID}` +
-        `?fields=slides.objectId`;
-
-      const apiResponse = await fetch(apiUrl, {
-        signal: controller.signal,
-        headers: { "Authorization": `Bearer ${token}` },
-      });
-      clearTimeout(timeoutId);
-
-      if (!apiResponse.ok) {
-        throw new Error(`Google API returned status ${apiResponse.status}`);
+    // Check the cache first
+    const cachedResponse = await cache.match(cacheKey);
+    if (cachedResponse) {
+      // Cache hit — read the stored slide count directly
+      const cachedText = await cachedResponse.text();
+      const parsed = parseInt(cachedText, 10);
+      if (!isNaN(parsed)) {
+        slideCount = parsed;
       }
+    } else {
+      // Cache miss — call the Google Slides API
+      try {
+        const token = await getAccessToken(
+          env.GOOGLE_SERVICE_ACCOUNT_EMAIL,
+          env.GOOGLE_PRIVATE_KEY
+        );
 
-      const data = await apiResponse.json();
-      slideCount = (data.slides || []).length;
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 5000);
 
-    } catch (e) {
-      // API failed or timed out — fall through with slideCount = 1 (max delay)
+        const apiUrl =
+          "https://slides.googleapis.com/v1/presentations/" + PRESENTATION_ID +
+          "?fields=slides.objectId";
+
+        const apiResponse = await fetch(apiUrl, {
+          signal: controller.signal,
+          headers: { "Authorization": "Bearer " + token },
+        });
+        clearTimeout(timeoutId);
+
+        if (!apiResponse.ok) {
+          throw new Error("Google API returned status " + apiResponse.status);
+        }
+
+        const data = await apiResponse.json();
+        slideCount = (data.slides || []).length;
+
+        // Store the slide count in the cache for SLIDE_CACHE_SECONDS.
+        // Only cache a valid positive count — do not cache zero, as the
+        // no-content page handles that case with its own 60s auto-refresh.
+        if (slideCount > 0) {
+          const responseToCache = new Response(String(slideCount), {
+            headers: {
+              "Cache-Control": "public, max-age=" + SLIDE_CACHE_SECONDS,
+              "Content-Type":  "text/plain",
+            },
+          });
+          await cache.put(cacheKey, responseToCache);
+        }
+
+      } catch (e) {
+        // API failed or timed out — fall through with slideCount = 1 (max delay)
+      }
     }
 
     // --------------------------------------------------------
