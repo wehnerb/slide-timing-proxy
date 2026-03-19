@@ -42,7 +42,7 @@
 
 const TOTAL_SECONDS         = 60;
 const MIN_SECONDS           = 5;
-const DEFAULT_DELAY_SECONDS = 90;
+const DEFAULT_DELAY_SECONDS = 10;
 
 // How long (seconds) the slide count is cached using the Workers Cache API.
 // During this window, the Google Slides API is only called once regardless
@@ -55,8 +55,8 @@ const SLIDE_CACHE_VERSION = 1;
 
 const DELAY_BY_SCREENS = {
   0: 0,   // no delay, primarily for testing purposes
-  1: 0,   // 1 traffic camera screen
-  2: 0,   // 2 traffic camera screens
+  1: 30,   // 1 traffic camera screen
+  2: 30,   // 2 traffic camera screens
   3: 0,   // 3 traffic camera screens
   4: 10,   // 4 traffic camera screens
   5: 10,   // 5 traffic camera screens
