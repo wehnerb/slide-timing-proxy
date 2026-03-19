@@ -4,26 +4,9 @@
 // TOTAL_SECONDS        : Total seconds the display system allocates
 //                        to the slideshow slot. Divided equally across
 //                        all slides, clamped to MIN_SECONDS minimum.
-//                        The delay occurs before the display system
-//                        timer starts, so this value does not need
-//                        to be adjusted to account for the delay.
 //
 // MIN_SECONDS          : Minimum seconds per slide (prevents slides
 //                        from cycling too fast with many slides)
-//
-// DEFAULT_DELAY_SECONDS: Fallback delay used when the ?screens=
-//                        parameter is missing from the URL or its
-//                        value is not found in DELAY_BY_SCREENS.
-//                        Set conservatively high to be safe.
-//
-// DELAY_BY_SCREENS     : Lookup table mapping the number of traffic
-//                        camera screens at a station to the correct
-//                        pre-fetch delay in seconds. The ?screens=
-//                        URL parameter selects the entry to use.
-//                        Determined through testing on actual display
-//                        hardware — adjust individual values as needed.
-//                        Add new entries if a station ever has more
-//                        than 4 traffic camera screens.
 //
 // SLIDE_CACHE_SECONDS  : How long (seconds) the slide count is cached
 //                        using the Workers Cache API. During this window
@@ -40,9 +23,8 @@
 //                        waiting for SLIDE_CACHE_SECONDS to expire.
 // ============================================================
 
-const TOTAL_SECONDS         = 60;
-const MIN_SECONDS           = 5;
-const DEFAULT_DELAY_SECONDS = 10;
+const TOTAL_SECONDS = 60;
+const MIN_SECONDS   = 5;
 
 // How long (seconds) the slide count is cached using the Workers Cache API.
 // During this window, the Google Slides API is only called once regardless
@@ -53,58 +35,35 @@ const DEFAULT_DELAY_SECONDS = 10;
 const SLIDE_CACHE_SECONDS = 3600; // 1 hour
 const SLIDE_CACHE_VERSION = 1;
 
-const DELAY_BY_SCREENS = {
-  0: 0,   // no delay, primarily for testing purposes
-  1: 50,   // 1 traffic camera screen
-  2: 50,   // 2 traffic camera screens
-  3: 0,   // 3 traffic camera screens
-  4: 10,   // 4 traffic camera screens
-  5: 10,   // 5 traffic camera screens
-};
-
 
 // ============================================================
 // MAIN WORKER ENTRY POINT
 // ============================================================
 export default {
-async fetch(request, env) {
+  async fetch(request, env) {
     const PRESENTATION_ID = env.PRESENTATION_ID;
     const PUBLISHED_ID    = env.PUBLISHED_ID;
 
     // Only GET requests are valid for this Worker.
     // All other HTTP methods are rejected immediately before any processing occurs.
-    if (request.method !== 'GET') {
-      return new Response('Method Not Allowed', { status: 405, headers: { 'Allow': 'GET' } });
+    if (request.method !== "GET") {
+      return new Response("Method Not Allowed", { status: 405, headers: { "Allow": "GET" } });
     }
 
-    // Guard: catch placeholder IDs before making any API calls
+    // Guard: catch missing secrets before making any API calls
     if (!PRESENTATION_ID || PRESENTATION_ID === "YOUR_PRESENTATION_ID_HERE") {
-      return new Response("PRESENTATION_ID has not been set in index.js", {
+      return new Response("PRESENTATION_ID has not been set as a Worker secret", {
         status: 500,
         headers: { "Content-Type": "text/plain" },
       });
     }
 
     if (!PUBLISHED_ID || PUBLISHED_ID === "YOUR_PUBLISHED_ID_HERE") {
-      return new Response("PUBLISHED_ID has not been set in index.js", {
+      return new Response("PUBLISHED_ID has not been set as a Worker secret", {
         status: 500,
         headers: { "Content-Type": "text/plain" },
       });
     }
-
-    // --------------------------------------------------------
-    // RESOLVE DELAY FROM ?screens= URL PARAMETER
-    // Parse the screens parameter and look up the correct delay.
-    // Falls back to DEFAULT_DELAY_SECONDS if the parameter is
-    // missing, not a number, or not found in DELAY_BY_SCREENS.
-    // --------------------------------------------------------
-    const url = new URL(request.url);
-    const screensParam = url.searchParams.get("screens");
-    const screensCount = parseInt(screensParam, 10);
-    const initialDelaySeconds =
-      (!isNaN(screensCount) && screensCount in DELAY_BY_SCREENS)
-        ? DELAY_BY_SCREENS[screensCount]
-        : DEFAULT_DELAY_SECONDS;
 
     // --------------------------------------------------------
     // FETCH SLIDE COUNT — WITH CACHE
@@ -176,7 +135,7 @@ async fetch(request, env) {
         }
 
       } catch (e) {
-        // API failed or timed out — fall through with slideCount = 1 (max delay)
+        // API failed or timed out — fall through with slideCount = 1
       }
     }
 
@@ -186,8 +145,8 @@ async fetch(request, env) {
     if (slideCount === 0) {
       return new Response(buildNoContentPage(), {
         headers: {
-          "Content-Type":          "text/html; charset=utf-8",
-          "Cache-Control":         "no-store",
+          "Content-Type":           "text/html; charset=utf-8",
+          "Cache-Control":          "no-store",
           "X-Content-Type-Options": "nosniff",
           "Referrer-Policy":        "no-referrer",
         },
@@ -195,7 +154,7 @@ async fetch(request, env) {
     }
 
     // --------------------------------------------------------
-    // CALCULATE PER-SLIDE DELAY and build the embed URL.
+    // CALCULATE PER-SLIDE DURATION and build the embed URL.
     //
     // Uses the pubembed URL format with PUBLISHED_ID, which
     // starts the presentation from slide 1 on every fresh load.
@@ -210,27 +169,18 @@ async fetch(request, env) {
     const delayMs = secondsPerSlide * 1000;
 
     const embedUrl =
-      `https://docs.google.com/presentation/d/e/${PUBLISHED_ID}` +
-      `/pubembed?start=true&loop=true&delayms=${delayMs}&cb=${Date.now()}`;
+      "https://docs.google.com/presentation/d/e/" + PUBLISHED_ID +
+      "/pubembed?start=true&loop=true&delayms=" + delayMs + "&cb=" + Date.now();
 
     // --------------------------------------------------------
-    // DELAY PAGE — returned instead of an immediate redirect.
-    // The display system pre-fetches this page before the
-    // slideshow slot becomes visible on screen. This page waits
-    // initialDelaySeconds (resolved from the ?screens= parameter)
-    // before navigating, ensuring the presentation always starts
-    // from slide 1 when it becomes visible.
-    // Cache-Control: no-store ensures the display always
-    // re-checks slide count rather than serving stale timing.
+    // REDIRECT — send the display directly to the embed URL.
+    // The slideshow slot is first in the rotation, so the
+    // presentation is already visible when the page loads and
+    // no pre-fetch delay is needed. Cache-Control: no-store
+    // ensures the display always re-checks slide count on the
+    // next cycle rather than serving a stale redirect.
     // --------------------------------------------------------
-    return new Response(buildDelayPage(embedUrl, initialDelaySeconds), {
-      headers: {
-        "Content-Type":          "text/html; charset=utf-8",
-        "Cache-Control":         "no-store",
-        "X-Content-Type-Options": "nosniff",
-        "Referrer-Policy":        "no-referrer",
-      },
-    });
+    return Response.redirect(embedUrl, 302);
   },
 };
 
@@ -259,7 +209,7 @@ async function getAccessToken(email, rawPrivateKey) {
     exp:   now + 3600,
   }));
 
-  const signingInput = `${header}.${payload}`;
+  const signingInput = header + "." + payload;
 
   // --------------------------------------------------------
   // STEP 2 — Import the private key using Web Crypto API
@@ -299,7 +249,7 @@ async function getAccessToken(email, rawPrivateKey) {
     encoder.encode(signingInput)
   );
 
-  const jwt = `${signingInput}.${arrayBufferToBase64url(signatureBuf)}`;
+  const jwt = signingInput + "." + arrayBufferToBase64url(signatureBuf);
 
   // --------------------------------------------------------
   // STEP 4 — Exchange the signed JWT for an access token
@@ -307,12 +257,12 @@ async function getAccessToken(email, rawPrivateKey) {
   const tokenResponse = await fetch("https://oauth2.googleapis.com/token", {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: `grant_type=urn%3Aietf%3Aparams%3Aoauth%3Agrant-type%3Ajwt-bearer&assertion=${jwt}`,
+    body: "grant_type=urn%3Aietf%3Aparams%3Aoauth%3Agrant-type%3Ajwt-bearer&assertion=" + jwt,
   });
 
   if (!tokenResponse.ok) {
     const errText = await tokenResponse.text();
-    throw new Error(`Token exchange failed (${tokenResponse.status}): ${errText}`);
+    throw new Error("Token exchange failed (" + tokenResponse.status + "): " + errText);
   }
 
   const tokenData = await tokenResponse.json();
@@ -348,125 +298,74 @@ function arrayBufferToBase64url(buffer) {
 
 
 // ============================================================
-// DELAY PAGE
-// Returned to the display instead of an immediate redirect.
-// Shows a plain dark screen for the resolved delay duration
-// before navigating to the Google Slides embed URL. This
-// prevents the presentation from cycling in the background
-// during the display system's pre-fetch window before the
-// slideshow slot becomes visible on screen.
-// ============================================================
-function buildDelayPage(embedUrl, delaySeconds) {
-  const delayMs = delaySeconds * 1000;
-
-  // SECURITY NOTE: embedUrl is injected directly into a <script> block as a string literal.
-  // This is safe ONLY because embedUrl is constructed entirely from hardcoded constants
-  // (PUBLISHED_ID) and Date.now(). It must NEVER be extended to include any user-supplied
-  // input (e.g. URL parameters), any external API response value, or any other untrusted
-  // data. Injecting untrusted content here without proper escaping would create a
-  // cross-site scripting (XSS) vulnerability allowing arbitrary script execution in the
-  // display browser.
-  return `<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Loading...</title>
-  <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body {
-      background: #0d1b2a;
-      width: 100vw;
-      height: 100vh;
-      overflow: hidden;
-    }
-  </style>
-  <script>
-    // Wait for the resolved delay before navigating to the embed URL.
-    // Google Slides does not begin loading during this delay, so the
-    // presentation always starts cleanly from slide 1 when navigation
-    // fires, regardless of when the display system pre-fetched this page.
-    setTimeout(function() {
-      window.location.href = "${embedUrl}";
-    }, ${delayMs});
-  </script>
-</head>
-<body>
-  <!-- Intentionally blank dark screen shown during the delay period. -->
-</body>
-</html>`;
-}
-
-
-// ============================================================
 // NO CONTENT PAGE
 // Displayed when the presentation exists but has zero slides.
 // Auto-refreshes every 60 seconds to check for new content.
 // ============================================================
 function buildNoContentPage() {
-  return `<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta http-equiv="refresh" content="60">
-  <title>No Content</title>
-  <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body {
-      background: #0d1b2a;
-      color: #ffffff;
-      font-family: Arial, Helvetica, sans-serif;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      height: 100vh;
-      text-align: center;
-      gap: 20px;
-    }
-    .badge {
-      width: 100px;
-      height: 100px;
-      border-radius: 50%;
-      background: #1e3a5f;
-      border: 4px solid #2e6da4;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 48px;
-    }
-    h1 {
-      font-size: 2rem;
-      font-weight: 700;
-      letter-spacing: 0.05em;
-      color: #e8f0fe;
-    }
-    .subtitle {
-      font-size: 1.1rem;
-      color: #8ab4d8;
-      max-width: 420px;
-      line-height: 1.6;
-    }
-    .note {
-      font-size: 0.85rem;
-      color: #4a6a8a;
-      margin-top: 10px;
-    }
-    .divider {
-      width: 60px;
-      height: 3px;
-      background: #2e6da4;
-      border-radius: 2px;
-    }
-  </style>
-</head>
-<body>
-  <div class="badge">&#128203;</div>
-  <div class="divider"></div>
-  <h1>NO CONTENT AVAILABLE</h1>
-  <p class="subtitle">There are currently no slides to display. This screen will refresh automatically when content is added.</p>
-  <p class="note">This page auto-refreshes every 60 seconds &mdash; no action needed.</p>
-</body>
-</html>`;
+  return "<!DOCTYPE html>\n" +
+    "<html lang=\"en\">\n" +
+    "<head>\n" +
+    "  <meta charset=\"UTF-8\">\n" +
+    "  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n" +
+    "  <meta http-equiv=\"refresh\" content=\"60\">\n" +
+    "  <title>No Content</title>\n" +
+    "  <style>\n" +
+    "    * { margin: 0; padding: 0; box-sizing: border-box; }\n" +
+    "    body {\n" +
+    "      background: #0d1b2a;\n" +
+    "      color: #ffffff;\n" +
+    "      font-family: Arial, Helvetica, sans-serif;\n" +
+    "      display: flex;\n" +
+    "      flex-direction: column;\n" +
+    "      align-items: center;\n" +
+    "      justify-content: center;\n" +
+    "      height: 100vh;\n" +
+    "      text-align: center;\n" +
+    "      gap: 20px;\n" +
+    "    }\n" +
+    "    .badge {\n" +
+    "      width: 100px;\n" +
+    "      height: 100px;\n" +
+    "      border-radius: 50%;\n" +
+    "      background: #1e3a5f;\n" +
+    "      border: 4px solid #2e6da4;\n" +
+    "      display: flex;\n" +
+    "      align-items: center;\n" +
+    "      justify-content: center;\n" +
+    "      font-size: 48px;\n" +
+    "    }\n" +
+    "    h1 {\n" +
+    "      font-size: 2rem;\n" +
+    "      font-weight: 700;\n" +
+    "      letter-spacing: 0.05em;\n" +
+    "      color: #e8f0fe;\n" +
+    "    }\n" +
+    "    .subtitle {\n" +
+    "      font-size: 1.1rem;\n" +
+    "      color: #8ab4d8;\n" +
+    "      max-width: 420px;\n" +
+    "      line-height: 1.6;\n" +
+    "    }\n" +
+    "    .note {\n" +
+    "      font-size: 0.85rem;\n" +
+    "      color: #4a6a8a;\n" +
+    "      margin-top: 10px;\n" +
+    "    }\n" +
+    "    .divider {\n" +
+    "      width: 60px;\n" +
+    "      height: 3px;\n" +
+    "      background: #2e6da4;\n" +
+    "      border-radius: 2px;\n" +
+    "    }\n" +
+    "  </style>\n" +
+    "</head>\n" +
+    "<body>\n" +
+    "  <div class=\"badge\">&#128203;</div>\n" +
+    "  <div class=\"divider\"></div>\n" +
+    "  <h1>NO CONTENT AVAILABLE</h1>\n" +
+    "  <p class=\"subtitle\">There are currently no slides to display. This screen will refresh automatically when content is added.</p>\n" +
+    "  <p class=\"note\">This page auto-refreshes every 60 seconds &mdash; no action needed.</p>\n" +
+    "</body>\n" +
+    "</html>";
 }
