@@ -12,7 +12,7 @@ This Worker solves the problem by:
 
 - Querying the Google Slides API for the current slide count, with the result cached for 1 hour to protect against API quota exhaustion
 - Dividing the total allotted time equally across all slides
-- Returning a delay page that navigates the display to the Google Slides embed URL with the correct `delayms` timing parameter already calculated
+- Redirecting the display directly to the Google Slides embed URL with the correct `delayms` timing parameter already calculated
 
 The display is configured with a single Worker URL and requires no further maintenance when slides are added or removed — timing adjusts automatically.
 
@@ -24,15 +24,14 @@ The display is configured with a single Worker URL and requires no further maint
 ## How It Works
 
 ```
-Display Screen → Cloudflare Worker → Workers Cache API → Google Slides API (on cache miss) → Delay Page → Slides Embed URL
+Display Screen → Cloudflare Worker → Workers Cache API → Google Slides API (on cache miss) → Slides Embed URL
 ```
 
 1. The display screen loads the Worker URL
 1. The Worker checks the Workers Cache API for a previously stored slide count
 1. On a cache miss, the Worker authenticates with the Google Slides API using a service account and fetches the current slide count, then stores it in the cache for `SLIDE_CACHE_SECONDS`
 1. Per-slide delay is calculated: `TOTAL_SECONDS ÷ slide count`, clamped to `MIN_SECONDS`
-1. The Worker returns a delay page — a plain dark screen — that waits for a configurable number of seconds before navigating to the Google Slides embed URL. This prevents the presentation from cycling in the background during the display system’s pre-fetch window
-1. The display loads the presentation with correct timing, always starting from slide 1
+1. The Worker issues a 302 redirect directly to the Google Slides embed URL with the correct timing parameter. The presentation always starts from slide 1 on every fresh load.
 
 -----
 
@@ -54,11 +53,10 @@ Display Screen → Cloudflare Worker → Workers Cache API → Google Slides API
 All configurable values are at the top of `src/index.js`. **No other part of the file should need editing for normal operation.**
 
 ```js
-const TOTAL_SECONDS         = 60;   // Total seconds allotted to the slideshow
-const MIN_SECONDS           = 5;    // Minimum seconds per slide
-const DEFAULT_DELAY_SECONDS = 90;   // Fallback pre-fetch delay in seconds
-const SLIDE_CACHE_SECONDS   = 3600; // How long to cache the slide count (1 hour)
-const SLIDE_CACHE_VERSION   = 1;    // Increment to immediately bust the slide count cache
+const TOTAL_SECONDS       = 60;   // Total seconds allotted to the slideshow
+const MIN_SECONDS         = 5;    // Minimum seconds per slide
+const SLIDE_CACHE_SECONDS = 3600; // How long to cache the slide count (1 hour)
+const SLIDE_CACHE_VERSION = 1;    // Increment to immediately bust the slide count cache
 ```
 
 ### Forcing an Immediate Slide Count Update
@@ -85,7 +83,7 @@ This ensures anyone seeing the display understands it is a content issue, not a 
 
 The Google Slides API no longer accepts simple API keys — it requires OAuth2 authentication. This Worker uses a **Google Service Account** to authenticate server-to-server without any user login.
 
-- Authentication is handled entirely using Cloudflare’s built-in **Web Crypto API** — no external libraries required
+- Authentication is handled entirely using Cloudflare's built-in **Web Crypto API** — no external libraries required
 - A short-lived OAuth2 access token is generated on each request using an RSA-signed JWT
 - The service account has **read-only** access to the Slides API (`presentations.readonly`) only — no access to Drive, Gmail, or any other Google services
 
@@ -146,7 +144,7 @@ Set these under **Settings → Secrets and variables → Actions** in this repos
 |----------------------------------------------|------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------|
 |Error: `PRESENTATION_ID has not been set`     |Secret not set in Cloudflare dashboard                      |Verify `PRESENTATION_ID` is present under Workers & Pages → [Worker Name] → Settings → Variables and Secrets                              |
 |Slides cycling at 60s each regardless of count|API call failing silently — falling back to `slideCount = 1`|Check that Worker secrets are present in Cloudflare dashboard under **Workers & Pages → [Worker Name] → Settings → Variables and Secrets**|
-|Slides not loading on display at all          |Presentation not set to public                              |Set the Google Slides sharing to “Anyone with the link can view”                                                                          |
+|Slides not loading on display at all          |Presentation not set to public                              |Set the Google Slides sharing to "Anyone with the link can view"                                                                          |
 |No-content screen showing unexpectedly        |Presentation has zero slides                                |Add at least one slide to the presentation — the display will recover automatically within 60 seconds                                     |
 |GitHub Actions deployment fails               |Invalid or expired API token or secret                      |Check the Actions log for details; re-create the failing secret and re-run the workflow                                                   |
 
