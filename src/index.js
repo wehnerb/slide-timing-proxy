@@ -169,8 +169,8 @@ export default {
     const delayMs = secondsPerSlide * 1000;
 
     const embedUrl =
-      "https://docs.google.com/presentation/d/e/" + PUBLISHED_ID +
-      "/pubembed?start=true&loop=true&delayms=" + delayMs + "&cb=" + Date.now();
+  "https://docs.google.com/presentation/d/e/" + PUBLISHED_ID +
+  "/pubembed?start=true&loop=true&delayms=" + delayMs + "&rm=minimal&cb=" + Date.now();
 
     // --------------------------------------------------------
     // REDIRECT — send the display directly to the embed URL.
