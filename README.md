@@ -4,6 +4,9 @@ A Cloudflare Worker that dynamically adjusts Google Slides per-slide timing to f
 
 -----
 
+## System Documentation
+Full system documentation is maintained at: https://github.com/wehnerb/ffd-display-system-documentation
+
 ## Overview
 
 Station display screens are configured with a fixed time slot for showing a Google Slides presentation — for example, 60 seconds. However, the number of slides in the presentation changes over time. Without intervention, timing is either set too long (wasting display time when there are few slides) or too short (slides fly by when there are many).
