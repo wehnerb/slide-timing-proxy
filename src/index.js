@@ -35,34 +35,35 @@ const MIN_SECONDS   = 5;
 const SLIDE_CACHE_SECONDS = 3600; // 1 hour
 const SLIDE_CACHE_VERSION = 1;
 
+// Background color applied when ?bg=dark is set — used for testing against a
+// solid background to verify layout and error states without a display background.
+const DARK_BG_COLOR = '#111111';
+
 
 // ============================================================
 // MAIN WORKER ENTRY POINT
 // ============================================================
 export default {
   async fetch(request, env) {
+    const url    = new URL(request.url);
+    const darkBg = url.searchParams.get('bg') === 'dark';
+
     const PRESENTATION_ID = env.PRESENTATION_ID;
     const PUBLISHED_ID    = env.PUBLISHED_ID;
 
     // Only GET requests are valid for this Worker.
     // All other HTTP methods are rejected immediately before any processing occurs.
     if (request.method !== "GET") {
-      return new Response("Method Not Allowed", { status: 405, headers: { "Allow": "GET" } });
+      return buildErrorPage("METHOD NOT ALLOWED", "Only GET requests are accepted", 405, darkBg);
     }
 
     // Guard: catch missing secrets before making any API calls
     if (!PRESENTATION_ID || PRESENTATION_ID === "YOUR_PRESENTATION_ID_HERE") {
-      return new Response("PRESENTATION_ID has not been set as a Worker secret", {
-        status: 500,
-        headers: { "Content-Type": "text/plain" },
-      });
+      return buildErrorPage("CONFIGURATION ERROR", "PRESENTATION_ID secret is not set", 500, darkBg);
     }
 
     if (!PUBLISHED_ID || PUBLISHED_ID === "YOUR_PUBLISHED_ID_HERE") {
-      return new Response("PUBLISHED_ID has not been set as a Worker secret", {
-        status: 500,
-        headers: { "Content-Type": "text/plain" },
-      });
+      return buildErrorPage("CONFIGURATION ERROR", "PUBLISHED_ID secret is not set", 500, darkBg);
     }
 
     // --------------------------------------------------------
@@ -143,7 +144,7 @@ export default {
     // NO SLIDES — return friendly info screen instead of redirect
     // --------------------------------------------------------
     if (slideCount === 0) {
-      return new Response(buildNoContentPage(), {
+      return new Response(buildNoContentPage(darkBg), {
         headers: {
           "Content-Type":           "text/html; charset=utf-8",
           "Cache-Control":          "no-store",
@@ -298,74 +299,87 @@ function arrayBufferToBase64url(buffer) {
 
 
 // ============================================================
+// BUILD ERROR PAGE
+// Returns a full-page styled HTML error response.
+// Used for configuration errors and rejected HTTP methods.
+// Accepts custom title and subtitle text so each error scenario
+// displays a specific, actionable message on screen.
+// The ?bg=dark parameter applies a solid dark background for
+// testing; production displays use a transparent background.
+// ============================================================
+function buildErrorPage(title, subtitle, status, darkBg = false) {
+  const html =
+    '<!DOCTYPE html>' +
+    '<html lang="en">' +
+    '<head>' +
+    '<meta charset="UTF-8">' +
+    '<style>' +
+    '*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }' +
+    'html, body {' +
+    '  width: 100vw; height: 100vh;' +
+    '  overflow: hidden;' +
+    '  background: ' + (darkBg ? DARK_BG_COLOR : 'transparent') + ';' +
+    '  font-family: "Segoe UI", Arial, Helvetica, sans-serif;' +
+    '  display: flex; align-items: center; justify-content: center;' +
+    '}' +
+    '.err-wrap { display: flex; flex-direction: column; align-items: center; gap: 8px; text-align: center; padding: 0 5vw; }' +
+    '.err-title { font-size: 1.8rem; font-weight: 700; color: #C8102E; letter-spacing: 0.06em; }' +
+    '.err-sub   { font-size: 1.1rem; color: rgba(255,255,255,0.92); }' +
+    '</style>' +
+    '</head>' +
+    '<body>' +
+    '<div class="err-wrap">' +
+    '<div class="err-title">' + title + '</div>' +
+    '<div class="err-sub">' + subtitle + '</div>' +
+    '</div>' +
+    '</body>' +
+    '</html>';
+
+  return new Response(html, {
+    status,
+    headers: {
+      'Content-Type':           'text/html; charset=UTF-8',
+      'Cache-Control':          'no-store',
+      'X-Content-Type-Options': 'nosniff',
+    },
+  });
+}
+
+
+// ============================================================
 // NO CONTENT PAGE
 // Displayed when the presentation exists but has zero slides.
 // Auto-refreshes every 60 seconds to check for new content.
+// Follows system design language — transparent background in
+// production, solid dark background when ?bg=dark is set.
 // ============================================================
-function buildNoContentPage() {
-  return "<!DOCTYPE html>\n" +
-    "<html lang=\"en\">\n" +
-    "<head>\n" +
-    "  <meta charset=\"UTF-8\">\n" +
-    "  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n" +
-    "  <meta http-equiv=\"refresh\" content=\"60\">\n" +
-    "  <title>No Content</title>\n" +
-    "  <style>\n" +
-    "    * { margin: 0; padding: 0; box-sizing: border-box; }\n" +
-    "    body {\n" +
-    "      background: #0d1b2a;\n" +
-    "      color: #ffffff;\n" +
-    "      font-family: Arial, Helvetica, sans-serif;\n" +
-    "      display: flex;\n" +
-    "      flex-direction: column;\n" +
-    "      align-items: center;\n" +
-    "      justify-content: center;\n" +
-    "      height: 100vh;\n" +
-    "      text-align: center;\n" +
-    "      gap: 20px;\n" +
-    "    }\n" +
-    "    .badge {\n" +
-    "      width: 100px;\n" +
-    "      height: 100px;\n" +
-    "      border-radius: 50%;\n" +
-    "      background: #1e3a5f;\n" +
-    "      border: 4px solid #2e6da4;\n" +
-    "      display: flex;\n" +
-    "      align-items: center;\n" +
-    "      justify-content: center;\n" +
-    "      font-size: 48px;\n" +
-    "    }\n" +
-    "    h1 {\n" +
-    "      font-size: 2rem;\n" +
-    "      font-weight: 700;\n" +
-    "      letter-spacing: 0.05em;\n" +
-    "      color: #e8f0fe;\n" +
-    "    }\n" +
-    "    .subtitle {\n" +
-    "      font-size: 1.1rem;\n" +
-    "      color: #8ab4d8;\n" +
-    "      max-width: 420px;\n" +
-    "      line-height: 1.6;\n" +
-    "    }\n" +
-    "    .note {\n" +
-    "      font-size: 0.85rem;\n" +
-    "      color: #4a6a8a;\n" +
-    "      margin-top: 10px;\n" +
-    "    }\n" +
-    "    .divider {\n" +
-    "      width: 60px;\n" +
-    "      height: 3px;\n" +
-    "      background: #2e6da4;\n" +
-    "      border-radius: 2px;\n" +
-    "    }\n" +
-    "  </style>\n" +
-    "</head>\n" +
-    "<body>\n" +
-    "  <div class=\"badge\">&#128203;</div>\n" +
-    "  <div class=\"divider\"></div>\n" +
-    "  <h1>NO CONTENT AVAILABLE</h1>\n" +
-    "  <p class=\"subtitle\">There are currently no slides to display. This screen will refresh automatically when content is added.</p>\n" +
-    "  <p class=\"note\">This page auto-refreshes every 60 seconds &mdash; no action needed.</p>\n" +
-    "</body>\n" +
-    "</html>";
+function buildNoContentPage(darkBg = false) {
+  return '<!DOCTYPE html>' +
+    '<html lang="en">' +
+    '<head>' +
+    '<meta charset="UTF-8">' +
+    '<meta http-equiv="refresh" content="60">' +
+    '<style>' +
+    '*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }' +
+    'html, body {' +
+    '  width: 100vw; height: 100vh;' +
+    '  overflow: hidden;' +
+    '  background: ' + (darkBg ? DARK_BG_COLOR : 'transparent') + ';' +
+    '  font-family: "Segoe UI", Arial, Helvetica, sans-serif;' +
+    '  display: flex; align-items: center; justify-content: center;' +
+    '}' +
+    '.wrap { display: flex; flex-direction: column; align-items: center; gap: 12px; text-align: center; padding: 0 5vw; }' +
+    '.title { font-size: 1.8rem; font-weight: 700; color: #C8102E; letter-spacing: 0.06em; }' +
+    '.sub   { font-size: 1.1rem; color: rgba(255,255,255,0.92); max-width: 480px; line-height: 1.6; }' +
+    '.note  { font-size: 0.85rem; color: rgba(255,255,255,0.38); margin-top: 4px; }' +
+    '</style>' +
+    '</head>' +
+    '<body>' +
+    '<div class="wrap">' +
+    '<div class="title">NO CONTENT AVAILABLE</div>' +
+    '<div class="sub">There are currently no slides to display. This screen will refresh automatically when content is added.</div>' +
+    '<div class="note">Auto-refreshes every 60 seconds &mdash; no action needed.</div>' +
+    '</div>' +
+    '</body>' +
+    '</html>';
 }
