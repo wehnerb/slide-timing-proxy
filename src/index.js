@@ -1,3 +1,5 @@
+import { fetchWithTimeout } from './shared/fetch-helpers.js';
+
 // ============================================================
 // CONFIGURATION — update these values as needed
 //
@@ -102,18 +104,13 @@ export default {
           env.GOOGLE_PRIVATE_KEY
         );
 
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 5000);
-
         const apiUrl =
           "https://slides.googleapis.com/v1/presentations/" + PRESENTATION_ID +
           "?fields=slides.objectId";
 
-        const apiResponse = await fetch(apiUrl, {
-          signal: controller.signal,
+        const apiResponse = await fetchWithTimeout(apiUrl, {
           headers: { "Authorization": "Bearer " + token },
-        });
-        clearTimeout(timeoutId);
+        }, 8000);
 
         if (!apiResponse.ok) {
           throw new Error("Google API returned status " + apiResponse.status);
@@ -255,11 +252,11 @@ async function getAccessToken(email, rawPrivateKey) {
   // --------------------------------------------------------
   // STEP 4 — Exchange the signed JWT for an access token
   // --------------------------------------------------------
-  const tokenResponse = await fetch("https://oauth2.googleapis.com/token", {
+  const tokenResponse = await fetchWithTimeout("https://oauth2.googleapis.com/token", {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: "grant_type=urn%3Aietf%3Aparams%3Aoauth%3Agrant-type%3Ajwt-bearer&assertion=" + jwt,
-  });
+  }, 10000);
 
   if (!tokenResponse.ok) {
     const errText = await tokenResponse.text();
