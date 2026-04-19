@@ -1,5 +1,7 @@
 import { fetchWithTimeout } from './shared/fetch-helpers.js';
 import { escapeHtml, sanitizeParam } from './shared/html.js';
+import { getAccessToken } from './shared/google-auth.js';
+import { DARK_BG_COLOR } from './shared/constants.js';
 
 // ============================================================
 // CONFIGURATION — update these values as needed
@@ -37,11 +39,6 @@ const MIN_SECONDS   = 5;
 // pick up the new timing without waiting for the TTL to expire.
 const SLIDE_CACHE_SECONDS = 3600; // 1 hour
 const SLIDE_CACHE_VERSION = 1;
-
-// Background color applied when ?bg=dark is set — used for testing against a
-// solid background to verify layout and error states without a display background.
-const DARK_BG_COLOR = '#111111';
-
 
 // ============================================================
 // MAIN WORKER ENTRY POINT
@@ -120,7 +117,8 @@ export default {
       try {
         const token = await getAccessToken(
           env.GOOGLE_SERVICE_ACCOUNT_EMAIL,
-          env.GOOGLE_PRIVATE_KEY
+          env.GOOGLE_PRIVATE_KEY,
+          'https://www.googleapis.com/auth/presentations.readonly'
         );
 
         const apiUrl =
@@ -205,117 +203,6 @@ export default {
   },
 };
 
-
-// ============================================================
-// SERVICE ACCOUNT AUTHENTICATION
-// Generates a short-lived OAuth2 access token from the
-// service account credentials stored as Worker secrets.
-// Uses the Web Crypto API built into Cloudflare Workers —
-// no external libraries or dependencies required.
-// ============================================================
-async function getAccessToken(email, rawPrivateKey) {
-
-  // --------------------------------------------------------
-  // STEP 1 — Build the JWT header and payload
-  // Google requires RS256-signed JWTs for service accounts
-  // --------------------------------------------------------
-  const now = Math.floor(Date.now() / 1000);
-
-  const header  = base64url(JSON.stringify({ alg: "RS256", typ: "JWT" }));
-  const payload = base64url(JSON.stringify({
-    iss:   email,
-    scope: "https://www.googleapis.com/auth/presentations.readonly",
-    aud:   "https://oauth2.googleapis.com/token",
-    iat:   now,
-    exp:   now + 3600,
-  }));
-
-  const signingInput = header + "." + payload;
-
-  // --------------------------------------------------------
-  // STEP 2 — Import the private key using Web Crypto API
-  // The raw key arrives with literal \n sequences from the
-  // GitHub secret — convert those to real newlines first,
-  // then strip the PEM header/footer and decode to binary.
-  // --------------------------------------------------------
-  const pemString = rawPrivateKey.replace(/\\n/g, "\n");
-
-  const pemBody = pemString
-    .replace(/-----BEGIN PRIVATE KEY-----/, "")
-    .replace(/-----END PRIVATE KEY-----/, "")
-    .replace(/-----BEGIN RSA PRIVATE KEY-----/, "")
-    .replace(/-----END RSA PRIVATE KEY-----/, "")
-    .replace(/\n/g, "")
-    .trim();
-
-  const binaryKey = Uint8Array.from(atob(pemBody), c => c.charCodeAt(0));
-
-  const cryptoKey = await crypto.subtle.importKey(
-    "pkcs8",
-    binaryKey,
-    { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" },
-    false,
-    ["sign"]
-  );
-
-  // --------------------------------------------------------
-  // STEP 3 — Sign the JWT with the private key
-  // Uses a safe byte-by-byte loop to avoid stack overflow
-  // on large buffers that spread operator can cause
-  // --------------------------------------------------------
-  const encoder = new TextEncoder();
-  const signatureBuf = await crypto.subtle.sign(
-    "RSASSA-PKCS1-v1_5",
-    cryptoKey,
-    encoder.encode(signingInput)
-  );
-
-  const jwt = signingInput + "." + arrayBufferToBase64url(signatureBuf);
-
-  // --------------------------------------------------------
-  // STEP 4 — Exchange the signed JWT for an access token
-  // --------------------------------------------------------
-  const tokenResponse = await fetchWithTimeout("https://oauth2.googleapis.com/token", {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: "grant_type=urn%3Aietf%3Aparams%3Aoauth%3Agrant-type%3Ajwt-bearer&assertion=" + jwt,
-  }, 10000);
-
-  if (!tokenResponse.ok) {
-    const errText = await tokenResponse.text();
-    throw new Error("Token exchange failed (" + tokenResponse.status + "): " + errText);
-  }
-
-  const tokenData = await tokenResponse.json();
-  return tokenData.access_token;
-}
-
-
-// ============================================================
-// UTILITY FUNCTIONS
-// ============================================================
-
-// Encodes a string to base64url format (used in JWT building)
-function base64url(str) {
-  return btoa(str)
-    .replace(/\+/g, "-")
-    .replace(/\//g, "_")
-    .replace(/=/g, "");
-}
-
-// Safely converts an ArrayBuffer to base64url without using
-// spread operator, which can overflow the stack on large buffers
-function arrayBufferToBase64url(buffer) {
-  const bytes = new Uint8Array(buffer);
-  let binary = "";
-  for (let i = 0; i < bytes.byteLength; i++) {
-    binary += String.fromCharCode(bytes[i]);
-  }
-  return btoa(binary)
-    .replace(/\+/g, "-")
-    .replace(/\//g, "_")
-    .replace(/=/g, "");
-}
 
 
 // ============================================================
