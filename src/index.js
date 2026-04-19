@@ -1,4 +1,5 @@
 import { fetchWithTimeout } from './shared/fetch-helpers.js';
+import { escapeHtml, sanitizeParam } from './shared/html.js';
 
 // ============================================================
 // CONFIGURATION — update these values as needed
@@ -68,6 +69,24 @@ export default {
       return buildErrorPage("CONFIGURATION ERROR", "PUBLISHED_ID secret is not set", 500, darkBg);
     }
 
+    if (!env.GOOGLE_SERVICE_ACCOUNT_EMAIL) {
+      return buildErrorPage(
+        'CONFIGURATION ERROR',
+        'GOOGLE_SERVICE_ACCOUNT_EMAIL secret is not set',
+        500,
+        darkBg
+      );
+    }
+
+    if (!env.GOOGLE_PRIVATE_KEY) {
+      return buildErrorPage(
+        'CONFIGURATION ERROR',
+        'GOOGLE_PRIVATE_KEY secret is not set',
+        500,
+        darkBg
+      );
+    }
+
     // --------------------------------------------------------
     // FETCH SLIDE COUNT — WITH CACHE
     // Checks the Workers Cache API before calling Google.
@@ -133,7 +152,11 @@ export default {
         }
 
       } catch (e) {
-        // API failed or timed out — fall through with slideCount = 1
+        console.error(
+          'slide-timing-proxy: Google Slides API call failed, ' +
+          'falling back to slideCount = 1. Error: ' +
+          (e && e.message ? e.message : String(e))
+        );
       }
     }
 
