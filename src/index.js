@@ -1,7 +1,7 @@
 import { fetchWithTimeout } from './shared/fetch-helpers.js';
 import { escapeHtml, sanitizeParam } from './shared/html.js';
 import { getAccessToken } from './shared/google-auth.js';
-import { DARK_BG_COLOR } from './shared/constants.js';
+import { DARK_BG_COLOR, FONT_STACK, ACCENT_COLOR, TEXT_PRIMARY, TEXT_TERTIARY } from './shared/colors.js';
 
 // ============================================================
 // CONFIGURATION — update these values as needed
@@ -226,12 +226,12 @@ function buildErrorPage(title, subtitle, status, darkBg = false) {
     '  width: 100vw; height: 100vh;' +
     '  overflow: hidden;' +
     '  background: ' + (darkBg ? DARK_BG_COLOR : 'transparent') + ';' +
-    '  font-family: "Segoe UI", Arial, Helvetica, sans-serif;' +
+    '  font-family: ' + FONT_STACK + ';' +
     '  display: flex; align-items: center; justify-content: center;' +
     '}' +
     '.err-wrap { display: flex; flex-direction: column; align-items: center; gap: 8px; text-align: center; padding: 0 5vw; }' +
-    '.err-title { font-size: 1.8rem; font-weight: 700; color: #C8102E; letter-spacing: 0.06em; }' +
-    '.err-sub   { font-size: 1.1rem; color: rgba(255,255,255,0.92); }' +
+    '.err-title { font-size: 1.8rem; font-weight: 700; color: ' + ACCENT_COLOR + '; letter-spacing: 0.06em; }' +
+    '.err-sub   { font-size: 1.1rem; color: ' + TEXT_PRIMARY + '; }' +
     '</style>' +
     '</head>' +
     '<body>' +
@@ -272,13 +272,13 @@ function buildNoContentPage(darkBg = false) {
     '  width: 100vw; height: 100vh;' +
     '  overflow: hidden;' +
     '  background: ' + (darkBg ? DARK_BG_COLOR : 'transparent') + ';' +
-    '  font-family: "Segoe UI", Arial, Helvetica, sans-serif;' +
+    '  font-family: ' + FONT_STACK + ';' +
     '  display: flex; align-items: center; justify-content: center;' +
     '}' +
     '.wrap { display: flex; flex-direction: column; align-items: center; gap: 12px; text-align: center; padding: 0 5vw; }' +
-    '.title { font-size: 1.8rem; font-weight: 700; color: #C8102E; letter-spacing: 0.06em; }' +
-    '.sub   { font-size: 1.1rem; color: rgba(255,255,255,0.92); max-width: 480px; line-height: 1.6; }' +
-    '.note  { font-size: 0.85rem; color: rgba(255,255,255,0.38); margin-top: 4px; }' +
+    '.title { font-size: 1.8rem; font-weight: 700; color: ' + ACCENT_COLOR + '; letter-spacing: 0.06em; }' +
+    '.sub   { font-size: 1.1rem; color: ' + TEXT_PRIMARY + '; max-width: 480px; line-height: 1.6; }' +
+    '.note  { font-size: 0.85rem; color: ' + TEXT_TERTIARY + '; margin-top: 4px; }' +
     '</style>' +
     '</head>' +
     '<body>' +
