@@ -67,10 +67,12 @@ export default {
         healthDetail = 'google-oauth: unreachable (' + (e && e.message ? e.message : String(e)) + ')';
       }
 
-      return new Response(
+      const healthBody =
         'status: ' + healthStatus + '\n' +
         'worker: slide-timing-proxy\n' +
-        healthDetail + '\n',
+        healthDetail + '\n';
+      return new Response(
+        request.method === 'HEAD' ? null : healthBody,
         {
           status: healthStatus === 'healthy' ? 200 : 503,
           headers: {
@@ -86,10 +88,13 @@ export default {
     const PRESENTATION_ID = env.PRESENTATION_ID;
     const PUBLISHED_ID    = env.PUBLISHED_ID;
 
-    // Only GET requests are valid for this Worker.
-    // All other HTTP methods are rejected immediately before any processing occurs.
-    if (request.method !== "GET") {
-      return buildErrorPage("METHOD NOT ALLOWED", "Only GET requests are accepted", 405, darkBg);
+    // Allow GET and HEAD (HEAD is used by UptimeRobot health monitoring).
+    // All other methods are rejected to reduce attack surface.
+    if (request.method !== 'GET' && request.method !== 'HEAD') {
+      return new Response('Method not allowed', {
+        status: 405,
+        headers: { 'Allow': 'GET, HEAD' },
+      });
     }
 
     // Guard: catch missing secrets before making any API calls
