@@ -28,7 +28,7 @@ import { DARK_BG_COLOR, FONT_STACK, ACCENT_COLOR, TEXT_PRIMARY, TEXT_TERTIARY } 
 //                        waiting for SLIDE_CACHE_SECONDS to expire.
 // ============================================================
 
-const TOTAL_SECONDS = 60;
+const TOTAL_SECONDS = 90;
 const MIN_SECONDS   = 5;
 
 // How long (seconds) the slide count is cached using the Workers Cache API.
